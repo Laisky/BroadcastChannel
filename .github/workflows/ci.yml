@@ -85,7 +85,7 @@ jobs:
           script: |
             docker pull ppcelery/boardcastchannel:latest
             cd /home/laisky/repo/VPS
-            docker-compose -f b1-docker-compose.yml up -d --remove-orphans --force-recreate boardcastchannel
+            docker-compose -f b1-docker-compose.yml up -d --remove-orphans --force-recreate channel_boardcast
             docker ps
 
   # ssh_test:
