@@ -1,33 +1,34 @@
-# Use an official Node.js runtime as a parent image
-FROM node:18-alpine
+FROM node:lts-alpine AS base
 
-# Set the working directory in the container
-WORKDIR /usr/src/app
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
+RUN corepack enable
 
-RUN npm install -g astro
-
-# Copy package.json and pnpm-lock.yaml to the working directory
+WORKDIR /app
 COPY package.json pnpm-lock.yaml ./
-RUN npm install i --force
 
-# Install pnpm
-# RUN npm install -g astro
+# FROM base AS prod-deps
+# RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --prod --frozen-lockfile
 
-# Install dependencies
-# RUN pnpm install
+FROM base AS build-deps
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
 
-# Copy the rest of the application code to the working directory
+FROM build-deps AS build
 COPY . .
-# RUN astro build
 
-# Build the project
-# RUN pnpm run build
+ARG SENTRY_DSN
+ARG SENTRY_AUTH_TOKEN
+ARG SENTRY_PROJECT
 
-# Expose the port the app runs on
+RUN export $(cat .env.example) && \
+    export DOCKER=true && \
+    pnpm run build
+
+FROM base AS runtime
+# COPY --from=prod-deps /app/node_modules ./node_modules
+COPY --from=build /app/dist ./dist
+
+ENV HOST=0.0.0.0
+ENV PORT=4321
 EXPOSE 4321
-
-# Define the command to run the app
-# CMD ["pnpm", "run", "preview", "--host", "0.0.0.0", "--port", "4321"]
-# CMD ["astro", "build", "&&" "preview", "--host", "0.0.0.0", "--port", "4321"]
-# CMD astro build && astro preview --host 0.0.0.0 --port 4321
-CMD [ "/bin/sh", "./run.sh" ]
+CMD node ./dist/server/entry.mjs
